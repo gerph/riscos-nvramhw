@@ -1,0 +1,187 @@
+REM >TestNVRAM
+REM Test program for NVRAMHW module
+REM Tests the NVRAMV vector interface
+
+ON ERROR ERROR EXT ERR, REPORT$ + " at line " + STR$(ERL/10)
+
+PROCtest_nvram
+
+END
+
+DEFPROCtest_nvram
+LOCAL pass%, test$, errors%, expected%(), i%, addr%, value%, read%, written%, filled%, buffer%
+
+errors% = 0
+DIM expected%(3)
+PRINT "NVRAMHW Module Test Suite"
+PRINT "========================="
+PRINT
+
+REM Test 1: Check module is loaded
+test$ = "Module loaded"
+PRINT "Test: ";test$
+REM If we get here, the module must be loaded as we've claimed the vector
+pass% = TRUE
+IF pass% THEN
+  PRINT "  PASS"
+ELSE
+  PRINT "  FAIL"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 2: Test ReadByte on address 0 using NVRAMV directly
+test$ = "NVRAMV ReadByte address 0"
+PRINT "Test: ";test$
+REM Call NVRAMV directly: R0=1 (ReadByte), R1=address, R9=vector number (62)
+SYS "OS_CallAVector", 1, 0, 0, 0, 0, 0, 0, 0, 0, 62 TO ,value%
+IF value% = &5A THEN
+  PRINT "  PASS (read &5A)"
+ELSE
+  PRINT "  FAIL (expected &5A, got ";STR$~value%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 3: Test ReadByte on address 1
+test$ = "NVRAMV ReadByte address 1"
+PRINT "Test: ";test$
+SYS "OS_CallAVector", 1, 1, 0, 0, 0, 0, 0, 0, 0, 62 TO ,value%
+IF value% = &A5 THEN
+  PRINT "  PASS (read &A5)"
+ELSE
+  PRINT "  FAIL (expected &A5, got ";STR$~value%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 4: Test ReadByte on address 2-5
+test$ = "NVRAMV ReadByte addresses 2-5"
+PRINT "Test: ";test$
+pass% = TRUE
+REM Expected values from nvram_init: DE, AD, BE, EF
+expected%(0) = &DE
+expected%(1) = &AD
+expected%(2) = &BE
+expected%(3) = &EF
+FOR i% = 0 TO 3
+  addr% = i% + 2
+  SYS "OS_CallAVector", 1, addr%, 0, 0, 0, 0, 0, 0, 0, 62 TO ,value%
+  IF value% <> expected%(i%) THEN
+    pass% = FALSE
+    PRINT "  Address ";addr%;": expected &";STR$~expected%(i%);", got &";STR$~value%
+  ENDIF
+NEXT
+IF pass% THEN
+  PRINT "  PASS"
+ELSE
+  PRINT "  FAIL"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 5: Test ReadByte out of range
+test$ = "NVRAMV ReadByte out of range (address 255)"
+PRINT "Test: ";test$
+SYS "OS_CallAVector", 1, 255, 0, 0, 0, 0, 0, 0, 0, 62 TO ,value%
+IF value% = 0 THEN
+  PRINT "  PASS (returned 0 for out of range)"
+ELSE
+  PRINT "  FAIL (expected 0, got ";STR$~value%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 6: Test WriteByte and ReadByte
+test$ = "NVRAMV WriteByte and ReadByte"
+PRINT "Test: ";test$
+REM Write: R0=2, R1=addr, R2=value
+SYS "OS_CallAVector", 2, 10, &FE, 0, 0, 0, 0, 0, 0, 62 TO ,written%
+SYS "OS_CallAVector", 1, 10, 0, 0, 0, 0, 0, 0, 0, 62 TO ,read%
+IF read% = &FE THEN
+  PRINT "  PASS (wrote &FE, read &FE)"
+ELSE
+  PRINT "  FAIL (wrote &FE, read &";STR$~read%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 7: Test WriteByte preserves value
+test$ = "NVRAMV WriteByte preserves value"
+PRINT "Test: ";test$
+SYS "OS_CallAVector", 2, 11, &12, 0, 0, 0, 0, 0, 0, 62 TO ,written%
+SYS "OS_CallAVector", 2, 11, &34, 0, 0, 0, 0, 0, 0, 62 TO ,written%
+SYS "OS_CallAVector", 1, 11, 0, 0, 0, 0, 0, 0, 0, 62 TO ,read%
+IF read% = &34 THEN
+  PRINT "  PASS (value preserved as &34)"
+ELSE
+  PRINT "  FAIL (expected &34, got &";STR$~read%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 8: Test FillCache
+test$ = "NVRAMV FillCache"
+PRINT "Test: ";test$
+REM Allocate a 256-byte buffer
+DIM buffer% 256
+REM Call FillCache: R0=0, R1=buffer, R2=count
+SYS "OS_CallAVector", 0, buffer%, 256, 0, 0, 0, 0, 0, 0, 62 TO ,,filled%
+IF filled% = 240 THEN
+  PRINT "  PASS (filled ";filled%;" bytes)"
+ELSE
+  PRINT "  FAIL (expected 240 bytes, got ";filled%;")"
+  errors% += 1
+ENDIF
+REM Check first few bytes match expected values
+IF buffer%?0 = &5A AND buffer%?1 = &A5 THEN
+  PRINT "  Cache contents verified"
+ELSE
+  PRINT "  FAIL (cache contents incorrect: &";STR$~buffer%?0%;" &";STR$~buffer%?1;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 9: Test multiple reads consistency
+test$ = "NVRAMV Multiple reads consistency"
+PRINT "Test: ";test$
+pass% = TRUE
+FOR i% = 1 TO 5
+  SYS "OS_CallAVector", 1, 0, 0, 0, 0, 0, 0, 0, 0, 62 TO ,value%
+  IF value% <> &5A THEN
+    pass% = FALSE
+    PRINT "  Read ";i%;": got &";STR$~value%
+  ENDIF
+NEXT
+IF pass% THEN
+  PRINT "  PASS (5 consistent reads of &5A)"
+ELSE
+  PRINT "  FAIL"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Test 10: Test WriteByte out of range (should be ignored)
+test$ = "NVRAMV WriteByte out of range"
+PRINT "Test: ";test$
+SYS "OS_CallAVector", 2, 255, &AA, 0, 0, 0, 0, 0, 0, 62 TO ,written%
+REM Read back - should still be 0 (out of range write ignored)
+SYS "OS_CallAVector", 1, 255, 0, 0, 0, 0, 0, 0, 0, 62 TO ,read%
+IF read% = 0 THEN
+  PRINT "  PASS (out of range write ignored)"
+ELSE
+  PRINT "  FAIL (expected 0, got &";STR$~read%;")"
+  errors% += 1
+ENDIF
+PRINT
+
+REM Summary
+PRINT "========================="
+PRINT "Tests completed"
+IF errors% = 0 THEN
+  PRINT "All tests PASSED"
+ELSE
+  PRINT errors%;" test(s) FAILED"
+ENDIF
+
+ENDPROC

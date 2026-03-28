@@ -1,0 +1,27 @@
+#!/usr/bin/env riscos-amu -f
+# Makefile for NVRAMHW
+#
+
+#
+# Program specific options:
+#
+COMPONENT  = NVRAMHW
+
+# Objects to build
+OBJS       = o.modhead \
+             o.module \
+             o.nvram \
+             o.os
+
+# By default we don't build Fortify in
+FORTIFY    = no
+
+include CModule
+
+# Additional dependencies
+$(OZDIR).module: h.modhead h.nvram h.os
+$(OZDIR).nvram: h.nvram
+$(OZDIR).os: h.os
+
+#---------------------------------------------------------------------------
+# Dynamic dependencies:

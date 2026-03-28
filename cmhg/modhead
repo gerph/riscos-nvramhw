@@ -1,0 +1,16 @@
+; CMHG file for NVRAMHW module
+; NVRAM Hardware prototype module implementing NVRAMV vector
+
+#include "VersionNum"
+
+title-string: NVRAMHW
+
+help-string: NVRAMHW Module_MajorVersion_CMHG
+
+; Vector 0x3E is NVRAMV
+; We need to claim this vector to handle NVRAM operations
+vector-handlers: NVRAMV_Entry/NVRAMV_Handler(error-capable:)
+
+initialisation-code: Mod_Init
+
+finalisation-code: Mod_Final

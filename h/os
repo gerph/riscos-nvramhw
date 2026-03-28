@@ -1,0 +1,22 @@
+/*******************************************************************
+ * File:        os.h
+ * Purpose:     OS interface functions header
+ * Author:      Charles Ferguson
+ ******************************************************************/
+
+#ifndef _OS_H
+#define _OS_H
+
+#include "kernel.h"
+
+/*
+ * OS interface functions
+ */
+
+/* Claim the NVRAMV vector */
+_kernel_oserror *nvramv_claim(void *pw);
+
+/* Release the NVRAMV vector */
+_kernel_oserror *nvramv_release(void *pw);
+
+#endif /* _OS_H */

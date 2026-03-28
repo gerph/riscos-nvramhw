@@ -1,0 +1,136 @@
+/*******************************************************************
+ * File:        module
+ * Purpose:     NVRAMHW module interface - vector handling
+ * Author:      Charles Ferguson
+ ******************************************************************/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+
+#include "kernel.h"
+#include "swis.h"
+#include "modhead.h"
+
+#include "nvram.h"
+#include "os.h"
+
+#define DEBUG
+
+#ifdef DEBUG
+#define dprintf if (1) printf
+#else
+#define dprintf if (0) printf
+#endif
+
+
+/***************************************************************************
+ * Function:     Mod_Init
+ * Description:  Initialise the module, claiming NVRAMV vector
+ * Parameters:   tail        = pointer to command line
+ *               podule_base = podule base address or NULL
+ *               pw          = private word for module
+ * On exit:      Return NULL for success, or error block on failure
+ **************************************************************************/
+_kernel_oserror *Mod_Init(const char *tail, int podule_base, void *pw)
+{
+    _kernel_oserror *err;
+    
+    dprintf("Module NVRAMHW initialising\n");
+    
+    /* Claim the NVRAMV vector */
+    err = nvramv_claim(pw);
+    if (err != NULL) {
+        dprintf("Failed to claim NVRAMV vector\n");
+        return err;
+    }
+    
+    dprintf("NVRAMHW module initialised successfully\n");
+    return NULL;
+}
+
+
+/***************************************************************************
+ * Function:     Mod_Final
+ * Description:  Finalise the module, releasing NVRAMV vector
+ * Parameters:   fatal       = fatality indicator
+ *               podule_base = podule base address or NULL
+ *               pw          = private word for module
+ * On exit:      Return NULL for success, or error block on failure
+ **************************************************************************/
+_kernel_oserror *Mod_Final(int fatal, int podule_base, void *pw)
+{
+    dprintf("Module NVRAMHW finalising\n");
+    
+    /* Release the NVRAMV vector */
+    nvramv_release(pw);
+    
+    dprintf("NVRAMHW module finalised\n");
+    return NULL;
+}
+
+
+/***************************************************************************
+ * Function:     NVRAMV_Handler
+ * Description:  Handle NVRAMV vector calls
+ * Parameters:   r  = pointer to register block
+ *               pw = private word for module
+ * On exit:      Returns VECTOR_CLAIM if handled, VECTOR_PASSON to pass on
+ *               Registers updated as per NVRAMV specification
+ **************************************************************************/
+int NVRAMV_Handler(_kernel_swi_regs *r, void *pw)
+{
+    int reason = r->r[0];
+    
+    dprintf("NVRAMV called with reason %d\n", reason);
+    
+    switch (reason) {
+        case 0: /* FillCache */
+        {
+            uint8_t *cache = (uint8_t *)r->r[1];
+            int count = r->r[2];
+            int filled;
+            
+            dprintf("  FillCache: cache=%p, count=%d\n", cache, count);
+            
+            filled = nvram_fill_cache(cache, count);
+            
+            r->r[0] = -1;  /* Handled */
+            r->r[2] = filled;  /* Number of bytes populated */
+            return VECTOR_CLAIM;
+        }
+        
+        case 1: /* ReadByte */
+        {
+            int byte_addr = r->r[1];
+            int value;
+            
+            dprintf("  ReadByte: addr=%d\n", byte_addr);
+            
+            value = nvram_read_byte(byte_addr);
+            
+            r->r[0] = -1;  /* Handled */
+            r->r[1] = value;  /* Value read */
+            return VECTOR_CLAIM;
+        }
+        
+        case 2: /* WriteByte */
+        {
+            int byte_addr = r->r[1];
+            int value = r->r[2];
+            
+            dprintf("  WriteByte: addr=%d, value=%d\n", byte_addr, value);
+            
+            nvram_write_byte(byte_addr, value);
+            
+            r->r[0] = -1;  /* Handled */
+            r->r[1] = value;  /* Value written */
+            return VECTOR_CLAIM;
+        }
+        
+        default:
+            dprintf("  Unknown reason code %d - passing on\n", reason);
+            return VECTOR_PASSON;
+    }
+}

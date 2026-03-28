@@ -1,0 +1,273 @@
+/*******************************************************************
+ * File:        nvram
+ * Purpose:     NVRAM hardware stub implementation
+ *              Prototype for IIC PCF8583 device interface
+ * Author:      Charles Ferguson
+ *
+ * Notes:
+ * This is a stub implementation that simulates NVRAM operations.
+ * In a real implementation, this would interface with hardware such
+ * as a PCF8583 RTC/NVRAM chip via the IIC bus.
+ *
+ * Example PCF8583 operations (for reference):
+ * - The PCF8583 has 240 bytes of RAM at addresses 0x0A-0xFF
+ * - IIC address is typically 0xA0 for read/write
+ * - To read: Set address pointer, then read bytes
+ * - To write: Set address pointer, then write bytes
+ ******************************************************************/
+
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+
+#include "nvram.h"
+
+#define DEBUG
+
+#ifdef DEBUG
+#define dprintf if (1) printf
+#else
+#define dprintf if (0) printf
+#endif
+
+/* 
+ * Stub NVRAM storage
+ * In a real implementation, this would be backed by actual NVRAM hardware
+ */
+static uint8_t nvram_storage[256];
+
+/* 
+ * Initialisation flag - tracks if NVRAM has been initialised
+ */
+static int nvram_initialised = 0;
+
+
+/***************************************************************************
+ * Function:     nvram_init
+ * Description:  Initialise the NVRAM hardware interface
+ * Parameters:   None
+ * On exit:      Returns 0 on success, non-zero on failure
+ *
+ * Notes:
+ * In a real implementation with a PCF8583:
+ * - Initialise IIC bus
+ * - Detect PCF8583 presence
+ * - Set up any required control registers
+ **************************************************************************/
+int nvram_init(void)
+{
+    dprintf("NVRAM: Initialising hardware interface\n");
+    
+    /* 
+     * PCF8583 example:
+     * 1. Initialise IIC: i2c_init()
+     * 2. Check device presence: 
+     *    - Write to control register, read back to verify
+     *    - PCF8583 IIC address = 0xA0 (write), 0xA1 (read)
+     * 3. Set control registers if needed:
+     *    - Control register at address 0x00
+     *    - Set 32kHz enable, reset flags, etc.
+     */
+    
+    /* Stub: Just mark as initialised */
+    nvram_initialised = 1;
+    
+    /* Pre-fill with some dummy data for testing */
+    memset(nvram_storage, 0x00, sizeof(nvram_storage));
+    
+    /* Put some recognisable pattern in the first few bytes */
+    nvram_storage[0] = 0x5A;  /* Test pattern */
+    nvram_storage[1] = 0xA5;
+    nvram_storage[2] = 0xDE;
+    nvram_storage[3] = 0xAD;
+    nvram_storage[4] = 0xBE;
+    nvram_storage[5] = 0xEF;
+    
+    dprintf("NVRAM: Hardware interface initialised\n");
+    return 0;
+}
+
+
+/***************************************************************************
+ * Function:     nvram_final
+ * Description:  Shut down the NVRAM hardware interface
+ * Parameters:   None
+ * On exit:      Returns 0 on success, non-zero on failure
+ *
+ * Notes:
+ * In a real implementation:
+ * - Ensure any pending writes are completed
+ * - Release IIC bus if appropriate
+ **************************************************************************/
+int nvram_final(void)
+{
+    dprintf("NVRAM: Shutting down hardware interface\n");
+    
+    /* 
+     * PCF8583 example:
+     * 1. Wait for any write to complete (check write cycle status)
+     * 2. Put device in low-power state if desired
+     * 3. Release IIC resources
+     */
+    
+    nvram_initialised = 0;
+    
+    dprintf("NVRAM: Hardware interface shut down\n");
+    return 0;
+}
+
+
+/***************************************************************************
+ * Function:     nvram_fill_cache
+ * Description:  Fill a cache buffer with NVRAM data
+ * Parameters:   cache = pointer to cache buffer
+ *               count = number of bytes to fill
+ * On exit:      Returns number of bytes populated
+ *
+ * Notes:
+ * In a real implementation with a PCF8583:
+ * - Set address pointer to 0x0A (start of RAM)
+ * - Read sequential bytes from device
+ * - Handle IIC read protocol (start, address, read, stop)
+ **************************************************************************/
+int nvram_fill_cache(uint8_t *cache, int count)
+{
+    int bytes_to_copy;
+    int i;
+    
+    dprintf("NVRAM: Filling cache with %d bytes\n", count);
+    
+    if (!nvram_initialised) {
+        dprintf("NVRAM: Not initialised, initialising now\n");
+        nvram_init();
+    }
+    
+    if (cache == NULL) {
+        dprintf("NVRAM: NULL cache pointer\n");
+        return 0;
+    }
+    
+    /* Limit to actual NVRAM size (240 bytes usable by Kernel) */
+    bytes_to_copy = count;
+    if (bytes_to_copy > 240) {
+        dprintf("NVRAM: Limiting to 240 bytes (Kernel limit)\n");
+        bytes_to_copy = 240;
+    }
+    
+    if (bytes_to_copy > sizeof(nvram_storage)) {
+        bytes_to_copy = sizeof(nvram_storage);
+    }
+    
+    /* 
+     * PCF8583 example:
+     * 1. Send IIC start condition
+     * 2. Send device address (0xA0) with write bit
+     * 3. Send memory address (0x0A for RAM start)
+     * 4. Send repeated start
+     * 5. Send device address (0xA1) with read bit
+     * 6. Read 'count' bytes sequentially
+     * 7. Send IIC stop condition
+     */
+    
+    /* Stub: Copy from our simulated storage */
+    for (i = 0; i < bytes_to_copy; i++) {
+        cache[i] = nvram_storage[i];
+        dprintf("NVRAM: cache[%d] = &%02X\n", i, cache[i]);
+    }
+    
+    /* Return total NVRAM size, not just what was filled */
+    dprintf("NVRAM: Cache filled, returning total size 240\n");
+    return 240;
+}
+
+
+/***************************************************************************
+ * Function:     nvram_read_byte
+ * Description:  Read a single byte from NVRAM
+ * Parameters:   addr = byte address to read
+ * On exit:      Returns value read, or 0 if out of range
+ *
+ * Notes:
+ * In a real implementation with a PCF8583:
+ * - Validate address (0-239 for usable NVRAM)
+ * - Set address pointer via IIC
+ * - Read single byte
+ **************************************************************************/
+int nvram_read_byte(int addr)
+{
+    uint8_t value;
+    
+    dprintf("NVRAM: Reading byte at address %d\n", addr);
+    
+    if (!nvram_initialised) {
+        dprintf("NVRAM: Not initialised, initialising now\n");
+        nvram_init();
+    }
+    
+    /* Validate address */
+    if (addr < 0 || addr >= 240) {
+        dprintf("NVRAM: Address %d out of range (0-239)\n", addr);
+        return 0;
+    }
+    
+    /* 
+     * PCF8583 example:
+     * 1. Send IIC start condition
+     * 2. Send device address (0xA0) with write bit
+     * 3. Send memory address (addr + 0x0A)
+     * 4. Send repeated start
+     * 5. Send device address (0xA1) with read bit
+     * 6. Read single byte
+     * 7. Send IIC stop condition
+     */
+    
+    /* Stub: Read from simulated storage */
+    value = nvram_storage[addr];
+    dprintf("NVRAM: Read value &%02X from address %d\n", value, addr);
+    
+    return value;
+}
+
+
+/***************************************************************************
+ * Function:     nvram_write_byte
+ * Description:  Write a single byte to NVRAM
+ * Parameters:   addr  = byte address to write
+ *               value = value to write
+ * On exit:      None
+ *
+ * Notes:
+ * In a real implementation with a PCF8583:
+ * - Validate address (0-239 for usable NVRAM)
+ * - Write byte via IIC
+ * - Wait for write cycle to complete (typically 5ms)
+ **************************************************************************/
+void nvram_write_byte(int addr, int value)
+{
+    dprintf("NVRAM: Writing &%02X to address %d\n", value, addr);
+    
+    if (!nvram_initialised) {
+        dprintf("NVRAM: Not initialised, initialising now\n");
+        nvram_init();
+    }
+    
+    /* Validate address */
+    if (addr < 0 || addr >= 240) {
+        dprintf("NVRAM: Address %d out of range (0-239)\n", addr);
+        return;
+    }
+    
+    /* 
+     * PCF8583 example:
+     * 1. Send IIC start condition
+     * 2. Send device address (0xA0) with write bit
+     * 3. Send memory address (addr + 0x0A)
+     * 4. Send data byte
+     * 5. Send IIC stop condition
+     * 6. Wait for write cycle (check status or delay ~5ms)
+     */
+    
+    /* Stub: Write to simulated storage */
+    nvram_storage[addr] = (uint8_t)value;
+    dprintf("NVRAM: Written &%02X to address %d\n", value, addr);
+}

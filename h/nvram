@@ -1,0 +1,31 @@
+/*******************************************************************
+ * File:        nvram
+ * Purpose:     NVRAM hardware interface header
+ * Author:      Charles Ferguson
+ ******************************************************************/
+
+#ifndef _NVRAM_H
+#define _NVRAM_H
+
+#include <stdint.h>
+
+/*
+ * NVRAM hardware interface functions
+ */
+
+/* Initialise the NVRAM hardware interface */
+int nvram_init(void);
+
+/* Shut down the NVRAM hardware interface */
+int nvram_final(void);
+
+/* Fill cache with NVRAM data */
+int nvram_fill_cache(uint8_t *cache, int count);
+
+/* Read a single byte from NVRAM */
+int nvram_read_byte(int addr);
+
+/* Write a single byte to NVRAM */
+void nvram_write_byte(int addr, int value);
+
+#endif /* _NVRAM_H */
